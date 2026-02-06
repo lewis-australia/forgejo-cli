@@ -1,159 +1,162 @@
-pub mod bundles {
-    use fluent_bundle::{concurrent::FluentBundle, FluentResource};
-    use std::sync::LazyLock;
-    use std::sync::OnceLock;
-    use unic_langid::langid;
+//include!(concat!(env!("OUT_DIR"), "/locale-generated.rs"));
+include!("../locale-generated.rs");
 
-    type Bundle = FluentBundle<FluentResource>;
+mod functions {
+    pub mod en_us {
+        use super::super::FluentValue;
+        pub struct STYLE<A0: FluentValue> {
+            pub __positional: (A0,),
+        }
 
-    macro_rules! bundle {
-        ($var:ident = $id:literal) => {
-            pub static $var: LazyLock<Bundle> = LazyLock::new(|| {
-                let mut bundle = Bundle::new_concurrent(vec![langid!($id)]);
-                let resource = FluentResource::try_new(
-                    include_str!(concat!("../localization/", $id, "/messages.ftl")).into(),
-                )
-                .expect(concat!("Failed to init ", $id, " locale"));
-                bundle.add_resource(resource).expect(concat!(
-                    "Failed to add ",
-                    $id,
-                    " locale resource"
-                ));
-                bundle
-            });
-        };
-    }
+        impl FluentValue for STYLE<&str> {
+            fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                Ok(())
+            }
 
-    bundle!(EN_US = "en-US");
-    bundle!(TOK = "tok");
-
-    pub fn locale() -> &'static [&'static LazyLock<Bundle>] {
-        LOCALE.get_or_init(init_from_env)
-    }
-
-    pub fn init_from_env() -> &'static [&'static LazyLock<Bundle>] {
-        let lang = std::env::var("LC_MESSAGES")
-            .or_else(|_| std::env::var("LANG"))
-            .unwrap_or_default();
-        init_to(&lang)
-    }
-
-    pub fn init_to(s: &str) -> &'static [&'static LazyLock<Bundle>] {
-        match s {
-            "en-US" => const { &[&EN_US] },
-            "tok" => const { &[&TOK, &EN_US] },
-            _ => const { &[&EN_US] },
+            fn matches_string(&self, s: &str) -> bool {
+                false
+            }
         }
     }
 
-    pub static LOCALE: OnceLock<&[&LazyLock<Bundle>]> = OnceLock::new();
+    pub mod tok {}
 }
 
-#[macro_export]
-macro_rules! ftl_args {
-    ($msg_id:literal) => {
-        $crate::ftl_args!($msg_id,)
-    };
-    ($msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
-        {
-            $crate::localization::bundles::locale()
-                .into_iter()
-                .filter_map(|l| Some((l, l.get_message($msg_id)?.value()?)))
-                .next()
-                .map(|(bundle, pattern)| {
-                    #[allow(unused_mut)]
-                    let mut args = fluent_bundle::FluentArgs::new();
-                    $(
-                        args.set(stringify!($var_name), $var_val);
-                    )*
-                    (bundle, pattern, args)
-                })
+pub const LOCALE: std::sync::LazyLock<String> =
+    std::sync::LazyLock::new(|| std::env::var("LANG").unwrap_or_else(|_| "C".into()));
+
+pub trait FluentValue {
+    fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result;
+
+    fn display_str(&self) -> String {
+        display_fn(|f| self.display(f)).to_string()
+    }
+
+    fn matches_string(&self, s: &str) -> bool;
+}
+
+impl FluentValue for u32 {
+    fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <u32 as std::fmt::Display>::fmt(self, f)
+    }
+
+    fn matches_string(&self, s: &str) -> bool {
+        match s {
+            "zero" => *self == 0,
+            "one" => *self == 1,
+            _ => false,
         }
-    };
+    }
+}
+
+impl FluentValue for f64 {
+    fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <f64 as std::fmt::Display>::fmt(self, f)
+    }
+
+    fn matches_string(&self, s: &str) -> bool {
+        match s {
+            "zero" => *self == 0.0,
+            "one" => *self == 1.0,
+            _ => false,
+        }
+    }
+}
+
+impl FluentValue for str {
+    fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <str as std::fmt::Display>::fmt(self, f)
+    }
+
+    fn matches_string(&self, s: &str) -> bool {
+        self == s
+    }
+}
+
+impl<'a, T: FluentValue + ?Sized> FluentValue for &'a T {
+    fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        T::display(self, f)
+    }
+
+    fn matches_string(&self, s: &str) -> bool {
+        T::matches_string(self, s)
+    }
+}
+
+pub struct DisplayFn<F>(pub F);
+
+pub fn display_fn<F: Fn(&mut std::fmt::Formatter<'_>) -> std::fmt::Result>(f: F) -> DisplayFn<F> {
+    DisplayFn(f)
+}
+
+impl<F> std::fmt::Display for DisplayFn<F>
+where
+    F: Fn(&mut std::fmt::Formatter<'_>) -> std::fmt::Result,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        (self.0)(f)
+    }
 }
 
 #[macro_export]
 macro_rules! ftl_format {
-    ($msg_id:literal) => {
+    ($msg_id:ident) => {
         $crate::ftl_format!($msg_id,)
     };
-    ($msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
+    ($msg_id:ident, $($var_name:ident = $var_val:expr),*) => {
         {
-            let args = $crate::ftl_args!($msg_id, $($var_name = $var_val),*);
-            if let Some((bundle, pattern, args)) = args {
-                let mut errors = Vec::new();
-                let out = bundle.format_pattern(pattern, Some(&args), &mut errors);
-                if !errors.is_empty() {
-                    for error in errors {
-                        eprintln!("{error}");
-                    }
-                    panic!("failed to format localized text");
-                }
-                out
-            } else {
-                std::borrow::Cow::from($msg_id)
-            }
-
+            use std::fmt::Write;
+            let mut s = String::new();
+            $crate::ftl_write!(&mut s, $msg_id, $($var_name = $var_val),*).expect("failed to format localized text");
+            s
         }
     }
 }
 
 #[macro_export]
 macro_rules! ftl_write {
-    ($writer:expr, $msg_id:literal) => {
+    ($writer:expr, $msg_id:ident) => {
         $crate::ftl_write!($writer, $msg_id,)
     };
-    ($writer:expr, $msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
+    ($writer:expr, $msg_id:ident, $($var_name:ident = $var_val:expr),*) => {
         {
-            use std::fmt::Write;
-            let args = $crate::ftl_args!($msg_id, $($var_name = $var_val),*);
-            if let Some((bundle, pattern, args)) = args {
-                let mut errors = Vec::new();
-                bundle.write_pattern($writer, pattern, Some(&args), &mut errors).expect("failed to write localized text");
-                if !errors.is_empty() {
-                    for error in errors {
-                        eprintln!("{error}");
+            write!($writer, "{}", $crate::localization::display_fn(|f| {
+                $crate::localization::$msg_id(
+                    f,
+                    $crate::localization::args::$msg_id {
+                        $(
+                            $var_name: $var_val,
+                        ),*
                     }
-                    panic!("failed to format localized text");
-                }
-            } else {
-                write!($writer, "{}", $msg_id).expect("failed to write text message id");
-            }
+                ).map_err(|_| std::fmt::Error)?;
+                Ok(())
+            }))
         }
-    }
-}
-
-pub struct WriterCompat<W>(pub W);
-
-impl<W: std::io::Write> std::fmt::Write for WriterCompat<W> {
-    fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        self.0.write_all(s.as_bytes()).map_err(|_| std::fmt::Error)
     }
 }
 
 #[macro_export]
 macro_rules! ftl_print {
-    ($msg_id:literal) => {
+    ($msg_id:ident) => {
         $crate::ftl_print!($msg_id,)
     };
-    ($msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
+    ($msg_id:ident, $($var_name:ident = $var_val:expr),*) => {
         {
-            let mut stdout = $crate::localization::WriterCompat(std::io::stdout());
-            $crate::ftl_write!(&mut stdout, $msg_id, $($var_name = $var_val),*);
+            $crate::ftl_write!(&mut std::io::stdout(), $msg_id, $($var_name = $var_val),*).expect("failed to print localized text");
         }
     }
 }
 
 #[macro_export]
 macro_rules! ftl_println {
-    ($msg_id:literal) => {
+    ($msg_id:ident) => {
         $crate::ftl_println!($msg_id,)
     };
-    ($msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
+    ($msg_id:ident, $($var_name:ident = $var_val:expr),*) => {
         {
-            use std::fmt::Write;
-            let mut stdout = $crate::localization::WriterCompat(std::io::stdout());
-            $crate::ftl_write!(&mut stdout, $msg_id, $($var_name = $var_val),*);
+            let mut stdout = std::io::stdout();
+            use std::io::Write;
+            $crate::ftl_write!(&mut stdout, $msg_id, $($var_name = $var_val),*).expect("failed to print localized text");
             writeln!(&mut stdout).expect("failed to write newline");
         }
     }
@@ -161,27 +164,27 @@ macro_rules! ftl_println {
 
 #[macro_export]
 macro_rules! ftl_eprint {
-    ($msg_id:literal) => {
+    ($msg_id:ident) => {
         $crate::ftl_eprint!($msg_id,)
     };
-    ($msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
+    ($msg_id:ident, $($var_name:ident = $var_val:expr),*) => {
         {
-            let mut stderr = $crate::localization::WriterCompat(std::io::stderr());
-            $crate::ftl_write!(&mut stderr, $msg_id, $($var_name = $var_val),*);
+            let mut stderr = $crate::localization::WriterCompat();
+            $crate::ftl_write!(&mut std::io::stderr(), $msg_id, $($var_name = $var_val),*).expect("failed to print localized text");
         }
     }
 }
 
 #[macro_export]
 macro_rules! ftl_eprintln {
-    ($msg_id:literal) => {
+    ($msg_id:ident) => {
         $crate::ftl_eprintln!($msg_id,)
     };
-    ($msg_id:literal, $($var_name:ident = $var_val:expr),*) => {
+    ($msg_id:ident, $($var_name:ident = $var_val:expr),*) => {
         {
-            use std::fmt::Write;
-            let mut stderr = $crate::localization::WriterCompat(std::io::stderr());
-            $crate::ftl_write!(&mut stderr, $msg_id, $($var_name = $var_val),*);
+            use std::io::Write;
+            let mut stderr = std::io::stderr();
+            $crate::ftl_write!(&mut stderr, $msg_id, $($var_name = $var_val),*).expect("failed to print localized text");
             writeln!(&mut stderr).expect("failed to write newline");
         }
     }

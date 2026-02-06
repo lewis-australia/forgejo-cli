@@ -2,3 +2,6 @@
 
 # Nix output
 /result*
+
+# Result from build.rs to be able to review it
+locale-generated.rs
