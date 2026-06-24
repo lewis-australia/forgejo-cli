@@ -24,6 +24,16 @@ Commit messages should follow the [Conventional Commit standard](https://www.con
 
 ## Localization
 
+`forgejo-cli`'s localization is done on
+[Codeberg Translate](https://translate.codeberg.org/projects/forgejo-cli/forgejo-cli/),
+and uses the Fluent localization system. It is recommended you first familiarize
+yourself with Fluent if you are not already. You can do so on
+[Fluent's website](https://projectfluent.org/) 
+
+If your language hasn't been added yet, you can start work on it by going to the
+"Languages" tab on Weblate and clicking on the plus symbol to the top left of
+the languages list.
+
 ## Maintainers
 ### Release Checklist
 ### Package Maintainers
