@@ -15,6 +15,11 @@ some other way violates the Code of Conduct, reach out to Forgejo's
 They will do their best to help you and resolve the situation.
 
 ## Coding
+### Style
+All code submissions must be formatted with `rustfmt`/`cargo fmt`. This is checked in CI to ensure proper formatting before a PR is merged.
+
+Commit messages should follow the [Conventional Commit standard](https://www.conventionalcommits.org/en/v1.0.0/). There's no expectation for pull request titles to follow this though.
+
 ### Adding commands
 
 ## Localization
