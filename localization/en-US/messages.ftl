@@ -1450,7 +1450,7 @@ help-arg-release-create-body-long =
     Text of the release body
 
     Using this flag without an argument will open your editor.
-help-arg-release-create-body = The text body of the release, to read from a file
+help-arg-release-create-body-file = The text body of the release, to read from a file
 msg-release-create-must_specify_tag = must select tag with `--tag` or `--create-tag`
 msg-release-create-tag_flags_conflict =`--tag` and `--create-tag` are mutually exclusive; please pick just one
 msg-release-create-success = Created release {$name}

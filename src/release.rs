@@ -48,7 +48,7 @@ pub enum ReleaseSubcommand {
         #[clap(long, short)]
         body: Option<Option<String>>,
 
-        #[clap(help = h!("help-arg-release-create-body"))]
+        #[clap(help = h!("help-arg-release-create-body-file"))]
         #[clap(long, short = 'F', value_name = "FILE", conflicts_with = "body")]
         body_file: Option<PathBuf>,
 
