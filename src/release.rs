@@ -152,7 +152,8 @@ impl ReleaseCommand {
                 prerelease,
             } => {
                 create_release(
-                    repo, &api, name, create_tag, tag, attach, body, branch, draft, prerelease,
+                    repo, &api, name, create_tag, tag, attach, body, body_file, branch, draft,
+                    prerelease,
                 )
                 .await?
             }
@@ -204,6 +205,7 @@ async fn create_release(
     tag: Option<String>,
     attachments: Vec<String>,
     body: Option<Option<String>>,
+    body_file: Option<PathBuf>,
     branch: Option<String>,
     draft: bool,
     prerelease: bool,
@@ -226,14 +228,15 @@ async fn create_release(
         }
     };
 
-    let body = match body {
-        Some(Some(body)) => Some(body),
-        Some(None) => {
+    let body = match (body, body_file) {
+        (_, Some(ref path)) => Some(crate::read_file_or_stdin(path).await?),
+        (Some(Some(body)), None) => Some(body),
+        (Some(None), None) => {
             let mut s = String::new();
             crate::editor(&mut s, Some("md")).await?;
             Some(s)
         }
-        None => None,
+        (None, None) => None,
     };
 
     let release_opt = forgejo_api::structs::CreateReleaseOption {
