@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Args, Subcommand};
 use eyre::{Context, OptionExt, eyre};
 use forgejo_api::{
@@ -45,6 +47,10 @@ pub enum ReleaseSubcommand {
         #[clap(help = h!("arg-release-create-body"), long_help = lh!("arg-release-create-body"))]
         #[clap(long, short)]
         body: Option<Option<String>>,
+
+        #[clap(help = h!("help-arg-release-create-body"))]
+        #[clap(long, short = 'F', value_name = "FILE", conflicts_with = "body")]
+        body_file: Option<PathBuf>,
 
         #[clap(long, short = 'B')]
         branch: Option<String>,
@@ -140,6 +146,7 @@ impl ReleaseCommand {
                 tag,
                 attach,
                 body,
+                body_file,
                 branch,
                 draft,
                 prerelease,
