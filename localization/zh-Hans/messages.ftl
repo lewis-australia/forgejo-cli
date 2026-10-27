@@ -1337,7 +1337,6 @@ msg-project-dir-not-found = 找不到 fj 的项目目录
 msg-old-key-file-read =
     注意：正在从旧位置的密钥文件中读取。
         该位置已弃用。密钥文件将保存到新位置。
-msg-key-file-not-found = 找不到密钥文件。正在创建新文件。
 msg-save-migrated-key-file-fail =
     { STYLE("bold", "yellow") }无法将密钥文件迁移到新位置！
     请确保 fj 可以写入 { $path }。旧文件未被修改。{ STYLE("reset") }
