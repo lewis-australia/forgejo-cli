@@ -1450,6 +1450,7 @@ help-arg-release-create-body-long =
     Text of the release body
 
     Using this flag without an argument will open your editor.
+help-arg-release-create-body-file = The text body of the release, to read from a file
 msg-release-create-must_specify_tag = must select tag with `--tag` or `--create-tag`
 msg-release-create-tag_flags_conflict =`--tag` and `--create-tag` are mutually exclusive; please pick just one
 msg-release-create-success = Created release {$name}
@@ -1550,7 +1551,7 @@ msg-project-dir-not-found = Could not find project directory for fj
 msg-old-key-file-read =
     Note: Reading from the keys file in the old location.
         That location is deprecated. The keys file will be saved to the new location.
-msg-save-migrated-key-file-fail = 
+msg-save-migrated-key-file-fail =
     {STYLE("bold", "yellow")}Could not migrate key file to the new location!
     Please ensure, fj can write to {$path}. The old file has not been modified.{STYLE("reset")}
 
