@@ -228,15 +228,18 @@ async fn create_release(
         }
     };
 
-    let body = match (body, body_file) {
-        (_, Some(ref path)) => Some(crate::read_file_or_stdin(path).await?),
-        (Some(Some(body)), None) => Some(body),
-        (Some(None), None) => {
-            let mut s = String::new();
-            crate::editor(&mut s, Some("md")).await?;
-            Some(s)
+    let body = if let Some(path) = body_file {
+        Some(crate::read_file_or_stdin(&path).await?)
+    } else {
+        match body {
+            Some(Some(body)) => Some(body),
+            Some(None) => {
+                let mut s = String::new();
+                crate::editor(&mut s, Some("md")).await?;
+                Some(s)
+            }
+            None => None,
         }
-        (None, None) => None,
     };
 
     let release_opt = forgejo_api::structs::CreateReleaseOption {
