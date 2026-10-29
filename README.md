@@ -1,3 +1,9 @@
+<!-- mirror-banner -->
+> [!NOTE]
+> **This is a mirror of [codeberg.org/forgejo-contrib/forgejo-cli](https://codeberg.org/forgejo-contrib/forgejo-cli).**
+> It is synced automatically every 6 hours by [`.github/workflows/sync.yml`](.github/workflows/sync.yml). Please file issues and pull requests upstream on Codeberg.
+<!-- /mirror-banner -->
+
 ## `fj`, a CLI client for Forgejo
 
 [<img src="https://repology.org/badge/vertical-allrepos/forgejo-cli.svg" alt="Packaging status" align="right">](https://repology.org/project/forgejo-cli/versions)

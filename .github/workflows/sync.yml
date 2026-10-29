@@ -1,0 +1,74 @@
+name: Sync from Codeberg
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mirror-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://codeberg.org/forgejo-contrib/forgejo-cli.git
+
+# main = upstream main + the mirror banner in README.md + this workflow.
+# Upstream changes are merged in (not force-pushed) so this workflow file is never
+# rewritten, which the built-in GITHUB_TOKEN isn't allowed to do.
+# All other branches and tags are mirrored verbatim.
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM"
+          git fetch --prune --no-tags upstream '+refs/heads/*:refs/remotes/upstream/*'
+          git fetch --force upstream '+refs/tags/*:refs/tags/*'
+
+      - name: Merge upstream main into main
+        run: |
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "main already up to date"
+            exit 0
+          fi
+          git merge --no-edit -X theirs upstream/main -m "Merge upstream main from Codeberg"
+          # Re-add the mirror banner if an upstream README change dropped it.
+          if ! grep -q '<!-- mirror-banner -->' README.md; then
+            git show HEAD^1:README.md | sed -n '/<!-- mirror-banner -->/,/<!-- \/mirror-banner -->/p' > banner.tmp
+            printf '\n' >> banner.tmp
+            cat banner.tmp README.md > README.new && mv README.new README.md && rm banner.tmp
+            git add README.md
+            git commit --amend --no-edit
+          fi
+          git push origin HEAD:main
+
+      - name: Mirror other branches and tags
+        run: |
+          refspecs=()
+          for b in $(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/upstream/); do
+            [ "$b" = main ] || [ "$b" = HEAD ] && continue
+            refspecs+=("+refs/remotes/upstream/$b:refs/heads/$b")
+          done
+          git push --force origin "${refspecs[@]}" '+refs/tags/*:refs/tags/*'
+
+          # Delete branches/tags removed upstream.
+          git ls-remote --heads --tags origin | awk '{print $2}' | grep -v '\^{}$' | while read -r ref; do
+            case "$ref" in
+              refs/heads/main) continue ;;
+              refs/heads/*) git show-ref --verify --quiet "refs/remotes/upstream/${ref#refs/heads/}" && continue ;;
+              refs/tags/*) git show-ref --verify --quiet "$ref" && continue ;;
+            esac
+            echo "Deleting $ref (removed upstream)"
+            git push origin --delete "$ref"
+          done
